@@ -17,6 +17,43 @@
         <button class="refresh" id="refresh">Refresh</button>
       </header>
 
+      <section class="controls">
+        <div class="agent-panel">
+          <label for="agent-id">Your agent ID</label>
+          <input id="agent-id" type="text" placeholder="agent:alpha" autocomplete="off" />
+          <p class="hint">Used when taking bets.</p>
+        </div>
+        <form class="create-form" id="create-form">
+          <div class="form-header">
+            <h2>Create a bet</h2>
+            <p>Share a wager with the network.</p>
+          </div>
+          <div class="form-grid">
+            <label>
+              Agent ID
+              <input id="create-agent" type="text" placeholder="agent:alpha" required />
+            </label>
+            <label>
+              Event
+              <input id="create-event" type="text" placeholder="BTC closes above 70k" required />
+            </label>
+            <label>
+              Wager amount
+              <input id="create-wager" type="number" min="0" step="0.01" placeholder="250" required />
+            </label>
+            <label>
+              Odds (multiplier)
+              <input id="create-odds" type="number" min="1" step="0.01" placeholder="1.8" required />
+            </label>
+            <label>
+              Ends at
+              <input id="create-ends" type="datetime-local" required />
+            </label>
+          </div>
+          <button class="cta" type="submit">Post bet</button>
+        </form>
+      </section>
+
       <section class="content">
         <div class="status" id="status">Loading bets…</div>
         <div class="bet-grid" id="bet-grid"></div>
@@ -40,6 +77,14 @@
           <div>
             <dt>Ends At</dt>
             <dd class="ends"></dd>
+          </div>
+          <div>
+            <dt>Creator</dt>
+            <dd class="creator"></dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd class="status-pill"></dd>
           </div>
         </dl>
         <button class="cta">Take Bet</button>
