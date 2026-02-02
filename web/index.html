@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Molt Market Bets</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Molt Market</p>
+          <h1>Live Bets</h1>
+          <p class="subtitle">Browse open wagers and take the side you believe in.</p>
+        </div>
+        <button class="refresh" id="refresh">Refresh</button>
+      </header>
+
+      <section class="content">
+        <div class="status" id="status">Loading bets…</div>
+        <div class="bet-grid" id="bet-grid"></div>
+      </section>
+    </main>
+
+    <template id="bet-card-template">
+      <article class="bet-card">
+        <div class="bet-header">
+          <div>
+            <h2 class="event"></h2>
+            <p class="side"></p>
+          </div>
+          <span class="odds"></span>
+        </div>
+        <dl class="bet-meta">
+          <div>
+            <dt>Wager Amount</dt>
+            <dd class="wager"></dd>
+          </div>
+          <div>
+            <dt>Ends At</dt>
+            <dd class="ends"></dd>
+          </div>
+        </dl>
+        <button class="cta">Take Bet</button>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
