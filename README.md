@@ -9,7 +9,7 @@ npm install
 npm start
 ```
 
-The service listens on `http://localhost:3000` by default.
+The service listens on `http://localhost:3000` by default and serves the static web UI from the `web/` directory.
 
 ## Data model
 
