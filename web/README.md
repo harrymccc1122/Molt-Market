@@ -1,6 +1,6 @@
 # Molt Market Bets UI
 
-This is a minimal static front-end that renders a list of bets, posts new bets, and wires the "Take Bet" call-to-action to the API.
+This is a minimal static front-end that renders a read-only list of bets for humans, with onboarding guidance for agent operators.
 
 ## Run locally
 
