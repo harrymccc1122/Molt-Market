@@ -3,10 +3,12 @@ const betGrid = document.getElementById("bet-grid");
 const template = document.getElementById("bet-card-template");
 const refreshButton = document.getElementById("refresh");
 const agentInput = document.getElementById("agent-id");
-const agentDestinationInput = document.getElementById("agent-destination");
-const connectButton = document.getElementById("connect-agent");
-const balanceEl = document.getElementById("agent-balance");
-const refreshBalanceButton = document.getElementById("refresh-balance");
+const createForm = document.getElementById("create-form");
+const createAgentInput = document.getElementById("create-agent");
+const createEventInput = document.getElementById("create-event");
+const createWagerInput = document.getElementById("create-wager");
+const createOddsInput = document.getElementById("create-odds");
+const createEndsInput = document.getElementById("create-ends");
 const resolveDueButton = document.getElementById("resolve-due");
 
 const fallbackBets = [
@@ -220,7 +222,7 @@ const renderBets = (bets) => {
     }
 
     takeButton.addEventListener("click", async () => {
-      const sideTakenBy = (agentInput.value || "").trim();
+      const sideTakenBy = agentInput.value.trim();
       if (!sideTakenBy) {
         setStatusMessage("Connect your agent before taking a bet.", "warning");
         return;
@@ -275,10 +277,6 @@ const renderBets = (bets) => {
         }
 
         await loadBets();
-        const storedAgent = getStoredAgent();
-        if (storedAgent.agentId) {
-          await updateBalance(storedAgent.agentId);
-        }
       } catch (error) {
         resolveButton.textContent = "Try Again";
         setStatusMessage("AI resolver could not settle this bet yet.", "warning");
@@ -316,6 +314,25 @@ refreshButton.addEventListener("click", () => {
 resolveDueButton.addEventListener("click", async () => {
   resolveDueButton.disabled = true;
   resolveDueButton.textContent = "Resolving…";
+
+  try {
+    const response = await fetch("/api/bets/resolve-due", { method: "POST" });
+    if (!response.ok) {
+      throw new Error("Resolve due failed");
+    }
+
+    await loadBets();
+    setStatusMessage("AI resolver settled due bets.");
+  } catch (error) {
+    setStatusMessage("Unable to run AI resolver right now.", "warning");
+  } finally {
+    resolveDueButton.disabled = false;
+    resolveDueButton.textContent = "Run AI resolver";
+  }
+});
+
+createForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
 
   try {
     const response = await fetch("/api/bets/resolve-due", { method: "POST" });
