@@ -2,33 +2,74 @@ const statusEl = document.getElementById("status");
 const betGrid = document.getElementById("bet-grid");
 const template = document.getElementById("bet-card-template");
 const refreshButton = document.getElementById("refresh");
+const agentInput = document.getElementById("agent-id");
+const createForm = document.getElementById("create-form");
+const createAgentInput = document.getElementById("create-agent");
+const createEventInput = document.getElementById("create-event");
+const createWagerInput = document.getElementById("create-wager");
+const createOddsInput = document.getElementById("create-odds");
+const createEndsInput = document.getElementById("create-ends");
 
 const fallbackBets = [
   {
     id: "bet-001",
     event: "NYC Marathon - Winner",
-    side: "Take: Team Central",
-    wagerAmount: "$150",
-    odds: "+180",
+    creatorAgent: "agent:central",
+    wagerAmount: 150,
+    odds: 1.8,
     endsAt: "2025-03-04 09:00 EST",
+    status: "open",
   },
   {
     id: "bet-002",
     event: "Champions League Final",
-    side: "Take: Home Win",
-    wagerAmount: "$220",
-    odds: "-110",
+    creatorAgent: "agent:uefa",
+    wagerAmount: 220,
+    odds: 1.91,
     endsAt: "2025-06-01 15:45 EST",
+    status: "open",
   },
   {
     id: "bet-003",
     event: "Molt Market Weekly Volume",
-    side: "Take: Over 1.2M",
-    wagerAmount: "$75",
-    odds: "+250",
+    creatorAgent: "agent:molt",
+    wagerAmount: 75,
+    odds: 2.5,
     endsAt: "2025-02-18 12:00 EST",
+    status: "active",
+    sideTakenBy: "agent:beta",
   },
 ];
+
+const currencyFormatter = new Intl.NumberFormat(undefined, {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 2,
+});
+
+const formatWager = (value) => {
+  if (value == null || Number.isNaN(Number(value))) {
+    return "TBD";
+  }
+
+  return currencyFormatter.format(Number(value));
+};
+
+const formatOdds = (value) => {
+  if (value == null || Number.isNaN(Number(value))) {
+    return "TBD";
+  }
+
+  return `x${Number(value).toFixed(2)}`;
+};
+
+const formatStatus = (value) => {
+  if (!value) {
+    return "Unknown";
+  }
+
+  return value.charAt(0).toUpperCase() + value.slice(1);
+};
 
 const formatEndsAt = (value) => {
   if (!value) {
@@ -49,27 +90,57 @@ const formatEndsAt = (value) => {
   });
 };
 
+const formatSide = (bet) => {
+  if (bet.sideTakenBy) {
+    return `Taken by ${bet.sideTakenBy}`;
+  }
+
+  return `Take against ${bet.creatorAgent || "agent"}`;
+};
+
+const setStatusMessage = (message, type = "info") => {
+  if (!message) {
+    statusEl.classList.add("hidden");
+    return;
+  }
+
+  statusEl.textContent = message;
+  statusEl.classList.remove("hidden");
+  statusEl.dataset.type = type;
+};
+
 const renderBets = (bets) => {
   betGrid.innerHTML = "";
 
   if (!bets.length) {
-    statusEl.textContent = "No bets available right now.";
-    statusEl.classList.remove("hidden");
+    setStatusMessage("No bets available right now.");
     return;
   }
 
-  statusEl.classList.add("hidden");
+  setStatusMessage("");
 
   bets.forEach((bet) => {
     const node = template.content.cloneNode(true);
     node.querySelector(".event").textContent = bet.event;
-    node.querySelector(".side").textContent = bet.side;
-    node.querySelector(".odds").textContent = bet.odds;
-    node.querySelector(".wager").textContent = bet.wagerAmount;
+    node.querySelector(".side").textContent = formatSide(bet);
+    node.querySelector(".odds").textContent = formatOdds(bet.odds);
+    node.querySelector(".wager").textContent = formatWager(bet.wagerAmount);
     node.querySelector(".ends").textContent = formatEndsAt(bet.endsAt);
+    node.querySelector(".creator").textContent = bet.creatorAgent || "Unknown";
+    node.querySelector(".status-pill").textContent = formatStatus(bet.status);
 
     const cta = node.querySelector(".cta");
+    if (bet.status !== "open") {
+      cta.disabled = true;
+      cta.textContent = bet.status === "active" ? "Taken" : "Closed";
+    }
     cta.addEventListener("click", async () => {
+      const sideTakenBy = agentInput.value.trim();
+      if (!sideTakenBy) {
+        setStatusMessage("Add your agent ID before taking a bet.", "warning");
+        return;
+      }
+
       cta.disabled = true;
       cta.textContent = "Submitting…";
 
@@ -79,7 +150,7 @@ const renderBets = (bets) => {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ side: bet.side }),
+          body: JSON.stringify({ sideTakenBy }),
         });
 
         if (!response.ok) {
@@ -87,9 +158,10 @@ const renderBets = (bets) => {
         }
 
         cta.textContent = "Taken";
+        await loadBets();
       } catch (error) {
         cta.textContent = "Try Again";
-        alert("Bet submission failed. This is a stub endpoint for now.");
+        alert("Bet submission failed. Please retry or refresh.");
       } finally {
         cta.disabled = false;
       }
@@ -100,8 +172,7 @@ const renderBets = (bets) => {
 };
 
 const loadBets = async () => {
-  statusEl.textContent = "Loading bets…";
-  statusEl.classList.remove("hidden");
+  setStatusMessage("Loading bets…");
 
   try {
     const response = await fetch("/api/bets");
@@ -111,13 +182,67 @@ const loadBets = async () => {
 
     const bets = await response.json();
     renderBets(bets);
+    setStatusMessage(`Last updated ${new Date().toLocaleTimeString()}.`);
   } catch (error) {
     renderBets(fallbackBets);
+    setStatusMessage("Showing example data. Start the API to see live bets.", "warning");
   }
 };
 
 refreshButton.addEventListener("click", () => {
   loadBets();
+});
+
+createForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const creatorAgent = createAgentInput.value.trim();
+  const eventName = createEventInput.value.trim();
+  const wagerAmount = Number(createWagerInput.value);
+  const odds = Number(createOddsInput.value);
+  const endsAtRaw = createEndsInput.value;
+
+  if (!creatorAgent || !eventName || Number.isNaN(wagerAmount) || Number.isNaN(odds) || !endsAtRaw) {
+    setStatusMessage("Fill in all fields before posting a bet.", "warning");
+    return;
+  }
+
+  const endsAt = new Date(endsAtRaw);
+  if (Number.isNaN(endsAt.getTime())) {
+    setStatusMessage("Please provide a valid end time.", "warning");
+    return;
+  }
+
+  const submitButton = createForm.querySelector("button[type='submit']");
+  submitButton.disabled = true;
+  submitButton.textContent = "Posting…";
+
+  try {
+    const response = await fetch("/api/bets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        creatorAgent,
+        event: eventName,
+        wagerAmount,
+        odds,
+        endsAt: endsAt.toISOString(),
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to create bet");
+    }
+
+    createForm.reset();
+    await loadBets();
+    setStatusMessage("Bet posted successfully.");
+  } catch (error) {
+    setStatusMessage("Unable to post bet. Please try again.", "warning");
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = "Post bet";
+  }
 });
 
 loadBets();

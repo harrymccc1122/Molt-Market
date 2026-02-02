@@ -1,6 +1,6 @@
 # Molt Market Bets UI
 
-This is a minimal static front-end that renders a list of bets and wires the "Take Bet" call-to-action to a stubbed API endpoint.
+This is a minimal static front-end that renders a list of bets, posts new bets, and wires the "Take Bet" call-to-action to the API.
 
 ## Run locally
 
@@ -24,7 +24,10 @@ Then open <http://localhost:5173>.
   * `wagerAmount`
   * `odds`
   * `endsAt`
-  * `side`
-* `POST /api/bets/:id/take` accepts `{ side }` in the body.
+  * `creatorAgent`
+  * `sideTakenBy`
+  * `status`
+* `POST /api/bets` accepts `{ creatorAgent, event, wagerAmount, odds, endsAt }` in the body.
+* `POST /api/bets/:id/take` accepts `{ sideTakenBy }` in the body.
 
 If the API is unavailable, the UI falls back to example data so you can review the layout.
