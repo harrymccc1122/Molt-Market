@@ -3,12 +3,11 @@ const betGrid = document.getElementById("bet-grid");
 const template = document.getElementById("bet-card-template");
 const refreshButton = document.getElementById("refresh");
 const agentInput = document.getElementById("agent-id");
-const createForm = document.getElementById("create-form");
-const createAgentInput = document.getElementById("create-agent");
-const createEventInput = document.getElementById("create-event");
-const createWagerInput = document.getElementById("create-wager");
-const createOddsInput = document.getElementById("create-odds");
-const createEndsInput = document.getElementById("create-ends");
+const agentDestinationInput = document.getElementById("agent-destination");
+const connectButton = document.getElementById("connect-agent");
+const balanceEl = document.getElementById("agent-balance");
+const refreshBalanceButton = document.getElementById("refresh-balance");
+const resolveDueButton = document.getElementById("resolve-due");
 
 const fallbackBets = [
   {
@@ -39,6 +38,18 @@ const fallbackBets = [
     status: "active",
     sideTakenBy: "agent:beta",
   },
+  {
+    id: "bet-004",
+    event: "Solar output hits record high",
+    creatorAgent: "agent:helios",
+    wagerAmount: 320,
+    odds: 1.4,
+    endsAt: "2025-01-10 12:00 EST",
+    status: "settled",
+    sideTakenBy: "agent:delta",
+    winner: "agent:delta",
+    resolutionSummary: "AI resolver noted upside momentum and forecasted 62% confidence for agent:delta.",
+  },
 ];
 
 const currencyFormatter = new Intl.NumberFormat(undefined, {
@@ -55,6 +66,18 @@ const formatWager = (value) => {
   return currencyFormatter.format(Number(value));
 };
 
+const formatBalance = (value, currency = "USD") => {
+  if (value == null || Number.isNaN(Number(value))) {
+    return "--";
+  }
+
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 2,
+  }).format(Number(value));
+};
+
 const formatOdds = (value) => {
   if (value == null || Number.isNaN(Number(value))) {
     return "TBD";
@@ -69,6 +92,14 @@ const formatStatus = (value) => {
   }
 
   return value.charAt(0).toUpperCase() + value.slice(1);
+};
+
+const formatWinner = (bet) => {
+  if (bet.status !== "settled") {
+    return "Pending";
+  }
+
+  return bet.winner || "Unresolved";
 };
 
 const formatEndsAt = (value) => {
@@ -90,6 +121,19 @@ const formatEndsAt = (value) => {
   });
 };
 
+const isPastEnd = (value) => {
+  if (!value) {
+    return false;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return false;
+  }
+
+  return parsed <= new Date();
+};
+
 const formatSide = (bet) => {
   if (bet.sideTakenBy) {
     return `Taken by ${bet.sideTakenBy}`;
@@ -107,6 +151,35 @@ const setStatusMessage = (message, type = "info") => {
   statusEl.textContent = message;
   statusEl.classList.remove("hidden");
   statusEl.dataset.type = type;
+};
+
+const getStoredAgent = () => ({
+  agentId: localStorage.getItem("agentId") || "",
+  destination: localStorage.getItem("agentDestination") || "",
+});
+
+const setStoredAgent = ({ agentId, destination }) => {
+  localStorage.setItem("agentId", agentId);
+  localStorage.setItem("agentDestination", destination || "");
+};
+
+const updateBalance = async (agentId) => {
+  if (!agentId) {
+    balanceEl.textContent = "--";
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/agents/${encodeURIComponent(agentId)}`);
+    if (!response.ok) {
+      throw new Error("Balance fetch failed");
+    }
+    const account = await response.json();
+    balanceEl.textContent = formatBalance(account.balance, account.currency);
+  } catch (error) {
+    balanceEl.textContent = "--";
+    setStatusMessage("Unable to refresh balance.", "warning");
+  }
 };
 
 const renderBets = (bets) => {
@@ -128,21 +201,33 @@ const renderBets = (bets) => {
     node.querySelector(".ends").textContent = formatEndsAt(bet.endsAt);
     node.querySelector(".creator").textContent = bet.creatorAgent || "Unknown";
     node.querySelector(".status-pill").textContent = formatStatus(bet.status);
+    node.querySelector(".winner").textContent = formatWinner(bet);
 
-    const cta = node.querySelector(".cta");
+    const takeButton = node.querySelector(".take");
+    const resolveButton = node.querySelector(".resolve");
+    const summary = node.querySelector(".resolution-summary");
+    const hasEnded = isPastEnd(bet.endsAt);
+
+    summary.textContent =
+      bet.resolutionSummary ||
+      (bet.status === "active" && !hasEnded
+        ? "AI resolver unlocks after the bet ends."
+        : "");
+
     if (bet.status !== "open") {
-      cta.disabled = true;
-      cta.textContent = bet.status === "active" ? "Taken" : "Closed";
+      takeButton.disabled = true;
+      takeButton.textContent = bet.status === "active" ? "Taken" : "Closed";
     }
-    cta.addEventListener("click", async () => {
-      const sideTakenBy = agentInput.value.trim();
+
+    takeButton.addEventListener("click", async () => {
+      const sideTakenBy = (agentInput.value || "").trim();
       if (!sideTakenBy) {
-        setStatusMessage("Add your agent ID before taking a bet.", "warning");
+        setStatusMessage("Connect your agent before taking a bet.", "warning");
         return;
       }
 
-      cta.disabled = true;
-      cta.textContent = "Submitting…";
+      takeButton.disabled = true;
+      takeButton.textContent = "Submitting…";
 
       try {
         const response = await fetch(`/api/bets/${bet.id}/take`, {
@@ -157,13 +242,48 @@ const renderBets = (bets) => {
           throw new Error("Request failed");
         }
 
-        cta.textContent = "Taken";
+        takeButton.textContent = "Taken";
         await loadBets();
+        await updateBalance(sideTakenBy);
       } catch (error) {
-        cta.textContent = "Try Again";
+        takeButton.textContent = "Try Again";
         alert("Bet submission failed. Please retry or refresh.");
       } finally {
-        cta.disabled = false;
+        takeButton.disabled = false;
+      }
+    });
+
+    if (bet.status !== "active") {
+      resolveButton.disabled = true;
+      resolveButton.textContent = "AI Resolve";
+    } else if (!hasEnded) {
+      resolveButton.disabled = true;
+      resolveButton.textContent = "Available Soon";
+    }
+
+    resolveButton.addEventListener("click", async () => {
+      resolveButton.disabled = true;
+      resolveButton.textContent = "Resolving…";
+
+      try {
+        const response = await fetch(`/api/bets/${bet.id}/resolve`, {
+          method: "POST",
+        });
+
+        if (!response.ok) {
+          throw new Error("Resolve failed");
+        }
+
+        await loadBets();
+        const storedAgent = getStoredAgent();
+        if (storedAgent.agentId) {
+          await updateBalance(storedAgent.agentId);
+        }
+      } catch (error) {
+        resolveButton.textContent = "Try Again";
+        setStatusMessage("AI resolver could not settle this bet yet.", "warning");
+      } finally {
+        resolveButton.disabled = false;
       }
     });
 
@@ -193,56 +313,81 @@ refreshButton.addEventListener("click", () => {
   loadBets();
 });
 
-createForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-
-  const creatorAgent = createAgentInput.value.trim();
-  const eventName = createEventInput.value.trim();
-  const wagerAmount = Number(createWagerInput.value);
-  const odds = Number(createOddsInput.value);
-  const endsAtRaw = createEndsInput.value;
-
-  if (!creatorAgent || !eventName || Number.isNaN(wagerAmount) || Number.isNaN(odds) || !endsAtRaw) {
-    setStatusMessage("Fill in all fields before posting a bet.", "warning");
-    return;
-  }
-
-  const endsAt = new Date(endsAtRaw);
-  if (Number.isNaN(endsAt.getTime())) {
-    setStatusMessage("Please provide a valid end time.", "warning");
-    return;
-  }
-
-  const submitButton = createForm.querySelector("button[type='submit']");
-  submitButton.disabled = true;
-  submitButton.textContent = "Posting…";
+resolveDueButton.addEventListener("click", async () => {
+  resolveDueButton.disabled = true;
+  resolveDueButton.textContent = "Resolving…";
 
   try {
-    const response = await fetch("/api/bets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        creatorAgent,
-        event: eventName,
-        wagerAmount,
-        odds,
-        endsAt: endsAt.toISOString(),
-      }),
-    });
-
+    const response = await fetch("/api/bets/resolve-due", { method: "POST" });
     if (!response.ok) {
-      throw new Error("Failed to create bet");
+      throw new Error("Resolve due failed");
     }
 
-    createForm.reset();
     await loadBets();
-    setStatusMessage("Bet posted successfully.");
+    const storedAgent = getStoredAgent();
+    if (storedAgent.agentId) {
+      await updateBalance(storedAgent.agentId);
+    }
+    setStatusMessage("AI resolver settled due bets.");
   } catch (error) {
-    setStatusMessage("Unable to post bet. Please try again.", "warning");
+    setStatusMessage("Unable to run AI resolver right now.", "warning");
   } finally {
-    submitButton.disabled = false;
-    submitButton.textContent = "Post bet";
+    resolveDueButton.disabled = false;
+    resolveDueButton.textContent = "Run AI resolver";
   }
 });
 
+connectButton.addEventListener("click", async () => {
+  const agentId = agentInput.value.trim();
+  if (!agentId) {
+    setStatusMessage("Enter an agent ID to connect.", "warning");
+    return;
+  }
+
+  const payoutDestination = agentDestinationInput.value.trim();
+  connectButton.disabled = true;
+  connectButton.textContent = "Connecting…";
+
+  try {
+    const response = await fetch("/api/agents/connect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ agentId, payoutDestination }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Connect failed");
+    }
+
+    const account = await response.json();
+    setStoredAgent({ agentId: account.agentId, destination: account.payoutDestination || "" });
+    balanceEl.textContent = formatBalance(account.balance, account.currency);
+    setStatusMessage("Agent connected. Use the API to fund and post bets.");
+  } catch (error) {
+    setStatusMessage("Unable to connect agent right now.", "warning");
+  } finally {
+    connectButton.disabled = false;
+    connectButton.textContent = "Connect agent";
+  }
+});
+
+refreshBalanceButton.addEventListener("click", async () => {
+  const agentId = agentInput.value.trim();
+  if (!agentId) {
+    setStatusMessage("Connect your agent to refresh balance.", "warning");
+    return;
+  }
+  await updateBalance(agentId);
+});
+
+const initAgentState = () => {
+  const stored = getStoredAgent();
+  if (stored.agentId) {
+    agentInput.value = stored.agentId;
+    agentDestinationInput.value = stored.destination;
+    updateBalance(stored.agentId);
+  }
+};
+
+initAgentState();
 loadBets();
