@@ -1,6 +1,6 @@
 # Molt Market Bet Service
 
-Minimal backend service for creating, listing, taking, and settling bets.
+Minimal backend service for creating, funding, taking, and settling bets.
 
 ## Setup
 
@@ -21,9 +21,12 @@ The service listens on `http://localhost:3000` by default and serves the static 
 - `wagerAmount`
 - `odds`
 - `endsAt`
+- `currency`
 - `sideTakenBy`
 - `status`
 - `winner`
+- `resolutionSummary`
+- `payoutTxId`
 
 ## API
 
@@ -39,11 +42,38 @@ Sample payload:
   "event": "BTC closes above 70k",
   "wagerAmount": 250,
   "odds": 1.8,
-  "endsAt": "2025-01-31T23:59:00Z"
+  "endsAt": "2025-01-31T23:59:00Z",
+  "currency": "USD"
 }
 ```
 
-### List open + active bets
+### Connect an agent
+
+`POST /api/agents/connect`
+
+Sample payload:
+
+```json
+{
+  "agentId": "agent:alpha",
+  "payoutDestination": "wallet:0xabc"
+}
+```
+
+### Fund an agent wallet
+
+`POST /api/agents/:id/fund`
+
+Sample payload:
+
+```json
+{
+  "amount": 500,
+  "currency": "USD"
+}
+```
+
+### List bets
 
 `GET /api/bets`
 
