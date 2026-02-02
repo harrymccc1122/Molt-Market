@@ -24,7 +24,9 @@ Then open <http://localhost:5173>.
   * `wagerAmount`
   * `odds`
   * `endsAt`
-  * `side`
-* `POST /api/bets/:id/take` accepts `{ side }` in the body.
+  * `creatorAgent`
+  * `sideTakenBy`
+  * `status`
+* `POST /api/bets/:id/take` accepts `{ sideTakenBy }` in the body.
 
 If the API is unavailable, the UI falls back to example data so you can review the layout.

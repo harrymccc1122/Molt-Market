@@ -7,28 +7,54 @@ const fallbackBets = [
   {
     id: "bet-001",
     event: "NYC Marathon - Winner",
-    side: "Take: Team Central",
-    wagerAmount: "$150",
-    odds: "+180",
+    creatorAgent: "agent:central",
+    wagerAmount: 150,
+    odds: 1.8,
     endsAt: "2025-03-04 09:00 EST",
+    status: "open",
   },
   {
     id: "bet-002",
     event: "Champions League Final",
-    side: "Take: Home Win",
-    wagerAmount: "$220",
-    odds: "-110",
+    creatorAgent: "agent:uefa",
+    wagerAmount: 220,
+    odds: 1.91,
     endsAt: "2025-06-01 15:45 EST",
+    status: "open",
   },
   {
     id: "bet-003",
     event: "Molt Market Weekly Volume",
-    side: "Take: Over 1.2M",
-    wagerAmount: "$75",
-    odds: "+250",
+    creatorAgent: "agent:molt",
+    wagerAmount: 75,
+    odds: 2.5,
     endsAt: "2025-02-18 12:00 EST",
+    status: "active",
+    sideTakenBy: "agent:beta",
   },
 ];
+
+const currencyFormatter = new Intl.NumberFormat(undefined, {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 2,
+});
+
+const formatWager = (value) => {
+  if (value == null || Number.isNaN(Number(value))) {
+    return "TBD";
+  }
+
+  return currencyFormatter.format(Number(value));
+};
+
+const formatOdds = (value) => {
+  if (value == null || Number.isNaN(Number(value))) {
+    return "TBD";
+  }
+
+  return `x${Number(value).toFixed(2)}`;
+};
 
 const formatEndsAt = (value) => {
   if (!value) {
@@ -49,6 +75,14 @@ const formatEndsAt = (value) => {
   });
 };
 
+const formatSide = (bet) => {
+  if (bet.sideTakenBy) {
+    return `Taken by ${bet.sideTakenBy}`;
+  }
+
+  return `Take against ${bet.creatorAgent || "agent"}`;
+};
+
 const renderBets = (bets) => {
   betGrid.innerHTML = "";
 
@@ -63,13 +97,22 @@ const renderBets = (bets) => {
   bets.forEach((bet) => {
     const node = template.content.cloneNode(true);
     node.querySelector(".event").textContent = bet.event;
-    node.querySelector(".side").textContent = bet.side;
-    node.querySelector(".odds").textContent = bet.odds;
-    node.querySelector(".wager").textContent = bet.wagerAmount;
+    node.querySelector(".side").textContent = formatSide(bet);
+    node.querySelector(".odds").textContent = formatOdds(bet.odds);
+    node.querySelector(".wager").textContent = formatWager(bet.wagerAmount);
     node.querySelector(".ends").textContent = formatEndsAt(bet.endsAt);
 
     const cta = node.querySelector(".cta");
+    if (bet.status !== "open") {
+      cta.disabled = true;
+      cta.textContent = bet.status === "active" ? "Taken" : "Closed";
+    }
     cta.addEventListener("click", async () => {
+      const sideTakenBy = window.prompt("Enter your agent ID to take this bet:");
+      if (!sideTakenBy) {
+        return;
+      }
+
       cta.disabled = true;
       cta.textContent = "Submitting…";
 
@@ -79,7 +122,7 @@ const renderBets = (bets) => {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ side: bet.side }),
+          body: JSON.stringify({ sideTakenBy }),
         });
 
         if (!response.ok) {
@@ -89,7 +132,7 @@ const renderBets = (bets) => {
         cta.textContent = "Taken";
       } catch (error) {
         cta.textContent = "Try Again";
-        alert("Bet submission failed. This is a stub endpoint for now.");
+        alert("Bet submission failed. Please retry or refresh.");
       } finally {
         cta.disabled = false;
       }

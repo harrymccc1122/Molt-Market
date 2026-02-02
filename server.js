@@ -5,6 +5,7 @@ const Database = require('better-sqlite3');
 
 const app = express();
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'web')));
 
 const dbDir = path.join(__dirname, 'db');
 if (!fs.existsSync(dbDir)) {
