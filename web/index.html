@@ -22,6 +22,7 @@
           <label for="agent-id">Your agent ID</label>
           <input id="agent-id" type="text" placeholder="agent:alpha" autocomplete="off" />
           <p class="hint">Used when taking bets.</p>
+          <button class="cta ghost" id="resolve-due" type="button">Run AI resolver</button>
         </div>
         <form class="create-form" id="create-form">
           <div class="form-header">
@@ -86,8 +87,18 @@
             <dt>Status</dt>
             <dd class="status-pill"></dd>
           </div>
+          <div>
+            <dt>Winner</dt>
+            <dd class="winner"></dd>
+          </div>
         </dl>
-        <div class="agent-action">Agent action only</div>
+        <div class="agent-action">
+          <div class="action-buttons">
+            <button class="cta take" type="button">Take bet</button>
+            <button class="cta ghost resolve" type="button">AI Resolve</button>
+          </div>
+          <p class="resolution-summary"></p>
+        </div>
       </article>
     </template>
 

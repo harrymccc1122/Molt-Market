@@ -24,9 +24,19 @@ db.exec(`
     endsAt TEXT NOT NULL,
     sideTakenBy TEXT,
     status TEXT NOT NULL,
-    winner TEXT
+    winner TEXT,
+    resolutionSummary TEXT
   );
 `);
+
+const ensureColumn = (table, column, type) => {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all().map((item) => item.name);
+  if (!columns.includes(column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  }
+};
+
+ensureColumn('bets', 'resolutionSummary', 'TEXT');
 
 const betColumns = [
   'id',
@@ -37,7 +47,8 @@ const betColumns = [
   'endsAt',
   'sideTakenBy',
   'status',
-  'winner'
+  'winner',
+  'resolutionSummary'
 ];
 
 const pickBet = (row) => {
@@ -57,8 +68,8 @@ app.post('/api/bets', (req, res) => {
   }
 
   const insert = db.prepare(`
-    INSERT INTO bets (creatorAgent, event, wagerAmount, odds, endsAt, sideTakenBy, status, winner)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO bets (creatorAgent, event, wagerAmount, odds, endsAt, sideTakenBy, status, winner, resolutionSummary)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const result = insert.run(
     creatorAgent,
@@ -68,6 +79,7 @@ app.post('/api/bets', (req, res) => {
     endsAt,
     null,
     'open',
+    null,
     null
   );
   const row = db.prepare('SELECT * FROM bets WHERE id = ?').get(result.lastInsertRowid);
@@ -76,7 +88,16 @@ app.post('/api/bets', (req, res) => {
 
 app.get('/api/bets', (_req, res) => {
   const rows = db
-    .prepare("SELECT * FROM bets WHERE status IN ('open', 'active') ORDER BY endsAt ASC")
+    .prepare(`
+      SELECT * FROM bets
+      ORDER BY
+        CASE status
+          WHEN 'open' THEN 0
+          WHEN 'active' THEN 1
+          ELSE 2
+        END,
+        endsAt ASC
+    `)
     .all();
   return res.json(rows.map(pickBet));
 });
@@ -121,6 +142,106 @@ app.post('/api/bets/:id/settle', (req, res) => {
 
   const updated = db.prepare('SELECT * FROM bets WHERE id = ?').get(req.params.id);
   return res.json(pickBet(updated));
+});
+
+const hashString = (value) => {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+};
+
+const resolveBetWithAi = (bet) => {
+  const signals = [];
+  let sentiment = 0;
+  const eventText = bet.event.toLowerCase();
+
+  if (/above|higher|rise|increase|growth|bull/.test(eventText)) {
+    sentiment += 0.1;
+    signals.push('upside momentum');
+  }
+  if (/below|lower|drop|decrease|decline|bear/.test(eventText)) {
+    sentiment -= 0.1;
+    signals.push('downside pressure');
+  }
+
+  const stakeSignal = Math.min(0.15, Number(bet.wagerAmount) / 2000);
+  if (stakeSignal > 0.02) {
+    sentiment += stakeSignal;
+    signals.push('high-stake confidence');
+  }
+
+  const seed = hashString(
+    `${bet.event}|${bet.endsAt}|${bet.wagerAmount}|${bet.odds}|${bet.creatorAgent}`
+  );
+  const base = (seed % 1000) / 1000;
+  const probabilityCreator = Math.min(0.9, Math.max(0.1, 0.5 + sentiment + (base - 0.5) * 0.2));
+  const winner = base < probabilityCreator ? bet.creatorAgent : bet.sideTakenBy;
+  const confidence = Math.round(probabilityCreator * 100);
+  const summary =
+    signals.length > 0
+      ? `AI resolver noted ${signals.join(', ')} and forecasted ${confidence}% confidence for ${winner}.`
+      : `AI resolver forecasted ${confidence}% confidence for ${winner}.`;
+
+  return { winner, summary };
+};
+
+app.post('/api/bets/:id/resolve', (req, res) => {
+  const bet = db.prepare('SELECT * FROM bets WHERE id = ?').get(req.params.id);
+  if (!bet) {
+    return res.status(404).json({ error: 'Bet not found' });
+  }
+  if (bet.status !== 'active') {
+    return res.status(409).json({ error: 'Bet must be active before resolution' });
+  }
+  if (!bet.sideTakenBy) {
+    return res.status(409).json({ error: 'Bet must be taken before resolution' });
+  }
+
+  const endsAt = new Date(bet.endsAt);
+  if (Number.isNaN(endsAt.getTime())) {
+    return res.status(400).json({ error: 'Bet has invalid end date' });
+  }
+  if (endsAt > new Date()) {
+    return res.status(409).json({ error: 'Bet cannot be resolved before end time' });
+  }
+
+  const { winner, summary } = resolveBetWithAi(bet);
+  db.prepare('UPDATE bets SET winner = ?, status = ?, resolutionSummary = ? WHERE id = ?').run(
+    winner,
+    'settled',
+    summary,
+    req.params.id
+  );
+
+  const updated = db.prepare('SELECT * FROM bets WHERE id = ?').get(req.params.id);
+  return res.json(pickBet(updated));
+});
+
+app.post('/api/bets/resolve-due', (_req, res) => {
+  const nowIso = new Date().toISOString();
+  const dueBets = db
+    .prepare("SELECT * FROM bets WHERE status = 'active' AND endsAt <= ?")
+    .all(nowIso);
+
+  const resolved = dueBets.map((bet) => {
+    if (!bet.sideTakenBy) {
+      return pickBet(bet);
+    }
+    const { winner, summary } = resolveBetWithAi(bet);
+    db.prepare('UPDATE bets SET winner = ?, status = ?, resolutionSummary = ? WHERE id = ?').run(
+      winner,
+      'settled',
+      summary,
+      bet.id
+    );
+    const updated = db.prepare('SELECT * FROM bets WHERE id = ?').get(bet.id);
+    return pickBet(updated);
+  });
+
+  return res.json({ resolved });
 });
 
 const port = process.env.PORT || 3000;

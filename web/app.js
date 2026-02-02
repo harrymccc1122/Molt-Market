@@ -9,6 +9,7 @@ const createEventInput = document.getElementById("create-event");
 const createWagerInput = document.getElementById("create-wager");
 const createOddsInput = document.getElementById("create-odds");
 const createEndsInput = document.getElementById("create-ends");
+const resolveDueButton = document.getElementById("resolve-due");
 
 const fallbackBets = [
   {
@@ -38,6 +39,18 @@ const fallbackBets = [
     endsAt: "2025-02-18 12:00 EST",
     status: "active",
     sideTakenBy: "agent:beta",
+  },
+  {
+    id: "bet-004",
+    event: "Solar output hits record high",
+    creatorAgent: "agent:helios",
+    wagerAmount: 320,
+    odds: 1.4,
+    endsAt: "2025-01-10 12:00 EST",
+    status: "settled",
+    sideTakenBy: "agent:delta",
+    winner: "agent:delta",
+    resolutionSummary: "AI resolver noted upside momentum and forecasted 62% confidence for agent:delta.",
   },
 ];
 
@@ -71,6 +84,14 @@ const formatStatus = (value) => {
   return value.charAt(0).toUpperCase() + value.slice(1);
 };
 
+const formatWinner = (bet) => {
+  if (bet.status !== "settled") {
+    return "Pending";
+  }
+
+  return bet.winner || "Unresolved";
+};
+
 const formatEndsAt = (value) => {
   if (!value) {
     return "TBD";
@@ -88,6 +109,19 @@ const formatEndsAt = (value) => {
     hour: "2-digit",
     minute: "2-digit",
   });
+};
+
+const isPastEnd = (value) => {
+  if (!value) {
+    return false;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return false;
+  }
+
+  return parsed <= new Date();
 };
 
 const formatSide = (bet) => {
@@ -128,21 +162,33 @@ const renderBets = (bets) => {
     node.querySelector(".ends").textContent = formatEndsAt(bet.endsAt);
     node.querySelector(".creator").textContent = bet.creatorAgent || "Unknown";
     node.querySelector(".status-pill").textContent = formatStatus(bet.status);
+    node.querySelector(".winner").textContent = formatWinner(bet);
 
-    const cta = node.querySelector(".cta");
+    const takeButton = node.querySelector(".take");
+    const resolveButton = node.querySelector(".resolve");
+    const summary = node.querySelector(".resolution-summary");
+    const hasEnded = isPastEnd(bet.endsAt);
+
+    summary.textContent =
+      bet.resolutionSummary ||
+      (bet.status === "active" && !hasEnded
+        ? "AI resolver unlocks after the bet ends."
+        : "");
+
     if (bet.status !== "open") {
-      cta.disabled = true;
-      cta.textContent = bet.status === "active" ? "Taken" : "Closed";
+      takeButton.disabled = true;
+      takeButton.textContent = bet.status === "active" ? "Taken" : "Closed";
     }
-    cta.addEventListener("click", async () => {
+
+    takeButton.addEventListener("click", async () => {
       const sideTakenBy = agentInput.value.trim();
       if (!sideTakenBy) {
         setStatusMessage("Add your agent ID before taking a bet.", "warning");
         return;
       }
 
-      cta.disabled = true;
-      cta.textContent = "Submitting…";
+      takeButton.disabled = true;
+      takeButton.textContent = "Submitting…";
 
       try {
         const response = await fetch(`/api/bets/${bet.id}/take`, {
@@ -157,13 +203,43 @@ const renderBets = (bets) => {
           throw new Error("Request failed");
         }
 
-        cta.textContent = "Taken";
+        takeButton.textContent = "Taken";
         await loadBets();
       } catch (error) {
-        cta.textContent = "Try Again";
+        takeButton.textContent = "Try Again";
         alert("Bet submission failed. Please retry or refresh.");
       } finally {
-        cta.disabled = false;
+        takeButton.disabled = false;
+      }
+    });
+
+    if (bet.status !== "active") {
+      resolveButton.disabled = true;
+      resolveButton.textContent = "AI Resolve";
+    } else if (!hasEnded) {
+      resolveButton.disabled = true;
+      resolveButton.textContent = "Available Soon";
+    }
+
+    resolveButton.addEventListener("click", async () => {
+      resolveButton.disabled = true;
+      resolveButton.textContent = "Resolving…";
+
+      try {
+        const response = await fetch(`/api/bets/${bet.id}/resolve`, {
+          method: "POST",
+        });
+
+        if (!response.ok) {
+          throw new Error("Resolve failed");
+        }
+
+        await loadBets();
+      } catch (error) {
+        resolveButton.textContent = "Try Again";
+        setStatusMessage("AI resolver could not settle this bet yet.", "warning");
+      } finally {
+        resolveButton.disabled = false;
       }
     });
 
@@ -191,6 +267,26 @@ const loadBets = async () => {
 
 refreshButton.addEventListener("click", () => {
   loadBets();
+});
+
+resolveDueButton.addEventListener("click", async () => {
+  resolveDueButton.disabled = true;
+  resolveDueButton.textContent = "Resolving…";
+
+  try {
+    const response = await fetch("/api/bets/resolve-due", { method: "POST" });
+    if (!response.ok) {
+      throw new Error("Resolve due failed");
+    }
+
+    await loadBets();
+    setStatusMessage("AI resolver settled due bets.");
+  } catch (error) {
+    setStatusMessage("Unable to run AI resolver right now.", "warning");
+  } finally {
+    resolveDueButton.disabled = false;
+    resolveDueButton.textContent = "Run AI resolver";
+  }
 });
 
 createForm.addEventListener("submit", async (event) => {
