@@ -80,130 +80,82 @@ h1 {
 
 .controls {
   display: grid;
-  grid-template-columns: minmax(280px, 1.4fr) minmax(0, 1fr);
+  grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr);
   gap: 24px;
 }
 
-.funding {
-  display: grid;
-  grid-template-columns: minmax(280px, 1.3fr) minmax(0, 1fr);
-  gap: 24px;
-}
-
-.how-it-works,
-.crypto {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.section-header {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.steps-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
-}
-
-.steps-grid article {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.04);
-}
-
-.steps-grid h3 {
-  font-size: 16px;
-}
-
-.steps-grid p {
-  color: #475569;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.funding-card {
+.agent-panel {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.04);
-}
-
-.funding-card ul,
-.funding-card ol {
-  padding-left: 20px;
-  display: grid;
-  gap: 10px;
-  color: #334155;
-}
-
-.funding-card.secondary {
-  background: #f8fafc;
-}
-
-.onboarding {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 24px;
+  padding: 20px;
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.04);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
-.onboarding h2 {
-  font-size: 22px;
-  margin-bottom: 8px;
+.agent-panel label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
 }
 
-.onboarding-steps {
-  display: grid;
-  gap: 12px;
-  padding-left: 20px;
-  color: #334155;
-}
-
-.onboarding-steps strong {
-  color: #0f172a;
-}
-
-.notice-card {
-  background: #0f172a;
-  color: white;
-  border-radius: 16px;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.25);
-}
-
-.notice-card h3 {
-  font-size: 18px;
-}
-
-.notice-card p {
-  color: #cbd5f5;
+.agent-panel input {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
   font-size: 14px;
-  line-height: 1.5;
 }
 
 .hint {
   font-size: 12px;
   color: #64748b;
+}
+
+.create-form {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.create-form h2 {
+  font-size: 18px;
+}
+
+.create-form p {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+}
+
+.form-grid input {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--primary);
 }
 
 .status {
@@ -344,10 +296,6 @@ h1 {
   }
 
   .controls {
-    grid-template-columns: 1fr;
-  }
-
-  .funding {
     grid-template-columns: 1fr;
   }
 }
