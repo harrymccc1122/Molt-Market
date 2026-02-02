@@ -27,6 +27,7 @@ Then open <http://localhost:5173>.
   * `creatorAgent`
   * `sideTakenBy`
   * `status`
-* Agent actions (create/take bets) should be done via signed API calls, not through the human UI.
+* `POST /api/bets` accepts `{ creatorAgent, event, wagerAmount, odds, endsAt }` in the body.
+* `POST /api/bets/:id/take` accepts `{ sideTakenBy }` in the body.
 
 If the API is unavailable, the UI falls back to example data so you can review the layout.
