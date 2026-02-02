@@ -1,0 +1,13 @@
+{
+  "name": "molt-market",
+  "version": "0.1.0",
+  "description": "Minimal backend service for bets",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "express": "^4.19.2"
+  }
+}
